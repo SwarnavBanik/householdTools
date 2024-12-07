@@ -19,14 +19,15 @@ clrPts, mpl, plt = frmtFig(mpl, plt, FS_title = 18, FS_tickLabel = 18, FS_axisLa
 CODENAME = 'assetDist'
 
 # %% Inputs ###################################################################
-term                = 30
-annualIncome        = 195E3 
-prnc_checkAccts     = 5E3
-prnc_savAccts       = 20E3
-prnc_cd             = 100E3
-prnc_stocks         = 25E3
-prnc_treasury       = 10E3
-prnc_401k           = 2.5E3
+
+term                = 20
+annualIncome        = 210E3 
+prnc_checkAccts     = 3500
+prnc_savAccts       = 28000
+prnc_cd             = 117186
+prnc_stocks         = 35080
+prnc_treasury       = 20632
+prnc_401k           = 23535
 stocks_splitRatio   = 0.25
 cd_splitRatio       = 0.5
 
@@ -37,8 +38,8 @@ wealth = incomeDist(annualIncome, annualExpense = 40E3, \
              stocks_splitRatio = stocks_splitRatio, stocks_start = prnc_stocks,\
              cd_splitRatio = cd_splitRatio, cd_start = prnc_cd,\
              sav_start = prnc_savAccts, check_start = prnc_checkAccts,\
-             inRt = np.array([0, 4.5, 5, 6.9, 5, 6.9])/100, \
-             term_years = 30 )
+             inRt = np.array([0, 3.5, 5, 6.9, 5, 6.9])/100, \
+             term_years = term )
 
 fig = wealth.printAnnualIncomeDist(0) 
 
