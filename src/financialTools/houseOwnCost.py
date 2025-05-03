@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 CODENAME = 'houseOwncost'
 
-from src.financialTools.incomeTax import incomeTax
 from src.financialTools.incomeTax import incomeTax_federal_FY2023
 from src.financialTools.investments import investment
 from src.frmtFig import frmtFig 
@@ -32,8 +31,8 @@ class homeOwnership:
         self.maintainRate       = maintainRate
         self.realEstateAppRate  = realEstateAppRate
         self.mortgageTerm       = mortgageTerm
-        if self.downPay/self.housePrice < 0.2:
-            print('Downpayment is less than 20%. The bank may require you to pay PMI. This analysis considers PMI = 0.')
+        if self.downPay/self.housePrice < 0.19:
+            print('Downpayment is less than 20%. The bank may require you to pay PMI. This analysis considers PMI = 0')
         
         # Establish the timeline ##############################################
         self.months  = np.array(range(0, self.mortgageTerm*12+1))
@@ -56,9 +55,11 @@ class homeOwnership:
         # Estimate the property and 'equity value' ############################
         self.getValApp()
         self.equity_CM_val = self.equity_CM_frc * self.value_CM
+        self.saleValue_CM_val = self.value_CM - self.housePrice*(1-self.equity_CM_frc)
         
         # Estimate the net 'profit' made ######################################        
-        self.profit_CM     = self.equity_CM_val - self.cost_CM
+        #self.profit_CM     = self.equity_CM_val - self.cost_CM
+        self.profit_CM     = self.saleValue_CM_val - self.cost_CM
        
         # Estimate unrecoverable costs ########################################  
         self.getUnrecoverableCosts(invstAppRate = invstAppRate)
@@ -112,9 +113,39 @@ class homeOwnership:
         self.invstAppRate  = invstAppRate        
         self.hyInvst = investment(self.cost_PM, invstAppRate = invstAppRate/12)
         self.unrecoverCost_CM   = - self.profit_CM + self.hyInvst.profit_CIP
+        
+    def plotTermTrend(self, figNo):
 
-    
-      
+        fig = plt.figure(figNo,figsize=(12,1*6))
+        gs  = GridSpec(1,1)
+        axs = fig.add_subplot(gs[0,0])
+        
+        
+        axs.fill_between(self.months/12, (self.cost_CM_prnc+self.downPay)*1E-6, 
+                         np.zeros(np.shape(self.cost_CM_prnc)),ls =  '-', \
+                         linewidth = 4, label = 'Principal') 
+        axs.fill_between(self.months/12, (self.cost_CM_debt+self.cost_CM_prnc+self.downPay)*1E-6, 
+                         (self.cost_CM_prnc+self.downPay)*1E-6,ls =  '-', \
+                         linewidth = 4, label = 'Interest')
+        axs.fill_between(self.months/12, (self.cost_CM_pTax+self.cost_CM_main\
+                        +self.cost_CM_debt+self.cost_CM_prnc+self.downPay)*1E-6, 
+                         (self.cost_CM_debt+self.cost_CM_prnc+self.downPay)*1E-6,ls =  '-', \
+                         linewidth = 4, label = 'Tax and Maintainence')
+           
+        axs.plot(self.months/12, self.cost_CM*1E-6, '--', \
+                  linewidth = 3, color = (1,1,1), label = 'Cost of Owning')
+        axs.plot(self.months/12, self.saleValue_CM_val*1E-6, '-.', \
+                  linewidth = 3, color = (1,1,1), label = 'House Sale Proceeds')
+        axs.plot(self.months/12, self.unrecoverCost_CM*1E-6, '-', \
+                  linewidth = 3, color = (1,1,1), label = 'Unrecoverable Cost of Owning')
+           
+        axs.legend()
+        axs.grid('major')
+        axs.set_ylabel('Million Dollars')
+        axs.set_xlabel('Years') 
+        plt.title('\n Buying \n')
+        axs.set(xlim=( -5, 35 ))
+        #axs.set(ylim=( -0.1, 4.5 ))     
             
 class renting:
     """ Renting
@@ -128,7 +159,7 @@ class renting:
         
         self.months   = np.array(range(0, self.rentTerm*12+1))
         self.cost_PM  = np.zeros((self.rentTerm*12+1,))
-        for ii in range(1, self.rentTerm*12+1):            
+        for ii in range(0, self.rentTerm*12+1):            
             self.cost_PM[ii] = self.startRent * (1+self.rentAppRate)**(np.floor(ii/12))
         self.cost_CM = self.cost_PM.cumsum()
         self.getUnrecoverableCosts(invstAppRate = invstAppRate)
@@ -142,7 +173,7 @@ class renting:
 class rentVSbuy:
     def __init__(self, housePrice, downPay, startRent, term = 30, \
                  mortgageRate = 7/100, propTaxRate = 0.8/100, maintainRate = 1/100, \
-                 realEstateAppRate = 4.16/100, rentAppRate = 3.5/100,\
+                 realEstateAppRate = 4.16/100, rentAppRate = 5/100,\
                  invstAppRate = 6.9/100, taxCredits = True, annualIncome = 400E3 ):
         self.house      = homeOwnership(housePrice, downPay, mortgageRate, mortgageTerm = term, \
                                    propTaxRate = propTaxRate, maintainRate = maintainRate, \
@@ -153,16 +184,16 @@ class rentVSbuy:
                                    realEstateAppRate = realEstateAppRate, invstAppRate = invstAppRate, \
                                    taxCredits = False )
         self.rental     = renting(startRent, rentTerm = term, rentAppRate = rentAppRate, invstAppRate = invstAppRate)
-        self.buyLoss    = self.house.unrecoverCost_CM[-1] - self.rental.unrecoverCost_CM[-1]
         
-        if self.buyLoss < 0:
-            idx = np.argmin(np.abs(self.house.unrecoverCost_CM[12:] - self.rental.unrecoverCost_CM[12:]))
-            self.brekEvenPoint = self.rental.months[idx+12]
-        elif self.buyLoss == 0:
-            self.brekEvenPoint = self.rental.months[-1]
-        else:
-            self.brekEvenPoint = np.NaN
-            
+        self.relBuyCost_PM = self.house.cost_PM - self.rental.cost_PM
+        self.relBuyCost_CM = self.relBuyCost_PM.cumsum()
+        self.getUnrecoverableCosts(invstAppRate = invstAppRate)
+
+    def getUnrecoverableCosts(self, invstAppRate = 6.9/100):
+        self.invstAppRate     = invstAppRate        
+        self.hyInvst          = investment(self.relBuyCost_PM, invstAppRate = invstAppRate/12)
+        self.unrecoverCost_CM = self.hyInvst.profit_CIP-self.house.profit_CM 
+       
         
         
         
@@ -171,27 +202,27 @@ class rentVSbuy:
         fig = plt.figure(figNo,figsize=(12,1*6))
         gs  = GridSpec(1,1)
         axs = fig.add_subplot(gs[0,0])
-        
-        line2 = self.house.unrecoverCost_CM*1E-6    
+          
         axs.plot(self.rental.months/12, (self.rental.cost_CM)*1E-6, '--', \
               linewidth = 3, color = clrPts[1], label = 'Cost of Renting')
         axs.plot(self.house.months/12, self.house.cost_CM*1E-6, '--', \
                   linewidth = 3, color = clrPts[0], label = 'Cost of Owning')
-        axs.plot(self.rental.months/12, (self.rental.unrecoverCost_CM)*1E-6, '-', \
-              linewidth = 4, color = clrPts[1], label = 'Unrcv. Cost of Renting')
-        
-        axs.plot(self.house.months/12, line2, '-', \
-                  linewidth = 4, color = clrPts[0], label = 'Unrcv. Cost of Owning')
-        axs.axvline(self.brekEvenPoint/12, ls = '--', linewidth = 3, color = (1,1,1), \
-                    label = f'Break Even Point = {self.brekEvenPoint/12:.1f} year')
+
+        axs.plot(self.rental.months/12, self.hyInvst.profit_CIP*1E-6, '--', \
+              linewidth = 2, color = (1,1,1), label = 'Profit when Renting')
+        axs.plot(self.rental.months/12, self.house.profit_CM*1E-6, '-.', \
+              linewidth = 2, color = (1,1,1), label = 'Profit when Owning')
+        axs.plot(self.rental.months/12, self.unrecoverCost_CM*1E-6, '-', \
+              linewidth = 2, color = (1,1,1), label = 'Unrcv. Owning Cost')
+            
            
         axs.legend()
         axs.grid('major')
         axs.set_ylabel('Million Dollars')
         axs.set_xlabel('Years') 
-        plt.title('Renting v/s Buying')
+        plt.title('\n Renting v/s Buying \n')
         axs.set(xlim=( -5, 35 ))
-        axs.set(ylim=( -0.1, 7 ))
+        axs.set(ylim=( -0.5, 4 ))
         
         
 

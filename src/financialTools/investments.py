@@ -53,7 +53,7 @@ class investment:
 
 # %% Portfolio of Investments #################################################
 class invstPortfolio:
-    def __init__(self, prncs = np.zeros((6,)), inRts = np.array([0, 4.5, 5, 6.9, 5, 6.9])/100, \
+    def __init__(self, prncs = np.zeros((6,)), inRts = np.array([0, 3.8, 4.5, 6.9, 5, 6.9])/100, \
                  accountNames = ['Checkings', 'Savings', 'CDs', 'Stocks', 'Treasury', '401K'],\
                  liquid   = [True, True, False, True, False, False],\
                  volatile = [False, False, False, True, False, True],\
@@ -126,7 +126,51 @@ class invstPortfolio:
             tot_value_false = tot_value_false + self.accounts[ii].value_CIP
         return tot_cost_true, tot_cost_false, tot_value_true, tot_value_false
 
+
+    def plotGrowth_percent(self, axs, accounts = 'total'):    
+        if accounts == 'all':
+            for ii in range(self.noOfAccounts):
+                axs.plot(self.months/12, self.accounts[ii].value_CIP*100/self.value_CIP, '-', \
+                          linewidth = 4, label = self.accounts[ii].name)
+        elif accounts == 'all-wrt-total':
+            for ii in range(0,self.noOfAccounts):
+                y = [x.value_CIP for x in self.accounts]
+                if ii == 0:
+                    baseline = np.zeros(np.shape(self.accounts[ii].value_CIP))
+                else:
+                    baseline = np.sum(y[:ii], axis = 0)*1E-6
+                axs.fill_between(self.months/12, self.accounts[ii].value_CIP*1E-6+baseline, baseline,ls =  '-', \
+                          linewidth = 4, label = self.accounts[ii].name)
+        elif accounts == 'volatile':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+                self.getCondAssets(accounts)
+            axs.plot(self.months/12, tot_value_true*100/self.value_CIP, '-', color = clrPts[0], linewidth = 4, label = 'Volatile Value')
+        elif accounts == 'non-volatile':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+                self.getCondAssets('volatile')
+            axs.plot(self.months/12, tot_value_false*100/self.value_CIP, '-', color = clrPts[0], linewidth = 4, label = 'Non Volatile Fraction')
+        elif accounts == 'liquid':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+               self.getCondAssets(accounts)
+            axs.plot(self.months/12, tot_value_true*100/self.value_CIP, '-', color = clrPts[1], linewidth = 4, label = 'Liquid Value')
+        elif accounts == 'non-liquid':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+               self.getCondAssets(accounts)
+            axs.plot(self.months/12, tot_value_false*100/self.value_CIP, '-', color = clrPts[1], linewidth = 4, label = 'Non Liquid Value')
+        elif accounts == 'liquid and non-volatile':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+               self.getCondAssets(accounts)
+            axs.plot(self.months/12, tot_value_true*100/self.value_CIP, '-', color = clrPts[1], linewidth = 4, label = 'Liquid and Non Volatile Value')           
         
+        else:
+            logging.error('investments:invstPortfolio::plotGrowth_value::: accounts needs to be all or total.')
+            
+        axs.legend()
+        axs.grid('major')
+        axs.set_ylabel('Percentage of Net Worth')
+        axs.set_xlabel('Years')        
+        
+        return axs
     
     def plotGrowth_value(self, axs, accounts = 'total'):    
         if accounts == 'all':
@@ -154,20 +198,30 @@ class invstPortfolio:
             axs.plot(self.months/12, tot_cost_false*1E-6, '--', color = clrPts[1], linewidth = 4, label = 'Non Voltile Cost')
             axs.plot(self.months/12, tot_value_true*1E-6, '-', color = clrPts[0], linewidth = 4, label = 'Volatile Value')   
             axs.plot(self.months/12, tot_value_false*1E-6, '-', color = clrPts[1], linewidth = 4, label = 'Non Voltile Value')
+        elif accounts == 'volatile-wrt-total':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+                self.getCondAssets('volatile')
+            axs.fill_between(self.months/12, tot_value_false*1E-6, np.zeros(np.shape(tot_value_false)),ls =  '-', \
+                      linewidth = 4, label = 'Non Volatile Value')    
+            axs.fill_between(self.months/12, tot_value_true*1E-6+tot_value_false*1E-6, tot_value_false*1E-6,ls =  '-', \
+                      linewidth = 4, label = 'Volatile Value')                         
         elif accounts == 'liquid':
             tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
                self.getCondAssets(accounts)
             axs.plot(self.months/12, tot_cost_true*1E-6, '--', color = clrPts[1], linewidth = 4, label = 'Liquid Cost')   
-            axs.plot(self.months/12, tot_cost_false*1E-6, '--', color = clrPts[0], linewidth = 4, label = 'Non Liquid Cost')
             axs.plot(self.months/12, tot_value_true*1E-6, '-', color = clrPts[1], linewidth = 4, label = 'Liquid Value')   
+        elif accounts == 'non-liquid':
+            tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
+               self.getCondAssets('liquid')
+            axs.plot(self.months/12, tot_cost_false*1E-6, '--', color = clrPts[0], linewidth = 4, label = 'Non Liquid Cost')
             axs.plot(self.months/12, tot_value_false*1E-6, '-', color = clrPts[0], linewidth = 4, label = 'Non Liquid Value')
         elif accounts == 'liquid and non-volatile':
             tot_cost_true, tot_cost_false, tot_value_true, tot_value_false = \
                self.getCondAssets(accounts)
             axs.plot(self.months/12, tot_cost_true*1E-6, '--', color = clrPts[1], linewidth = 4, label = 'Liquid and Non Volatile Cost')   
-            axs.plot(self.months/12, tot_cost_false*1E-6, '--', color = clrPts[0], linewidth = 4, label = 'Remaining Cost')
+            #axs.plot(self.months/12, tot_cost_false*1E-6, '--', color = clrPts[0], linewidth = 4, label = 'Remaining Cost')
             axs.plot(self.months/12, tot_value_true*1E-6, '-', color = clrPts[1], linewidth = 4, label = 'Liquid and Non Volatile Value')   
-            axs.plot(self.months/12, tot_value_false*1E-6, '-', color = clrPts[0], linewidth = 4, label = 'Remaining Value')
+            #axs.plot(self.months/12, tot_value_false*1E-6, '-', color = clrPts[0], linewidth = 4, label = 'Remaining Value')
         
         
         else:
@@ -177,6 +231,7 @@ class invstPortfolio:
         axs.grid('major')
         axs.set_ylabel('Million Dollars')
         axs.set_xlabel('Years') 
+        return axs
         
 
 # %% Income Allocation ########################################################
